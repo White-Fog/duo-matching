@@ -1,0 +1,36 @@
+.App {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.all {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.headers {
+    width: 100%;
+    height: 5.85%;
+    margin: 0;
+    padding: 0;
+}
+.bodys {
+    width: 100%;
+    height: 94.15%;
+    margin: 0;
+    padding: 0;
+}
