@@ -1,6 +1,6 @@
 require("dotenv").config();
 const axios = require("axios");
-import { RIOT_API_KEY } from "../../.env"; //API 키 불러오기
+const RIOT_API_KEY = process.env.RIOT_API_KEY;
 //get puuid
 async function getSummonerUidByName(gameName, tagLine) {
   try {

@@ -2,3 +2,5 @@ backend/.env
 backend/node_modules/
 backend/OP스코어 테스트.txt
 backend/코파일럿아 도와줘!.txt
+frontend/node_modules/
+frontend/.env

@@ -1,173 +1,145 @@
-// LoginModal.jsx
-import React, { useState, useRef, useContext } from 'react';
-import { Modal, Button, Row, Col, Form } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
-import { createGlobalStyle } from 'styled-components';
-import axios from 'axios';
-
-import { AuthContext } from './AuthContext';
+import React, { useState, useRef, useContext } from "react";
+import { Modal, Button, Row, Col, Form } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { AuthContext } from "./AuthContext";
 
 export default function LoginModal({ show, setShow }) {
-    const [loginUser, setLoginUser] = useState({ email: '', password: '' });
+  // 초기 상태를 nickname과 password로 정의합니다.
+  const [loginUser, setLoginUser] = useState({ nickname: "", password: "" });
 
-    const navigate = useNavigate();
-    /////////////////////////
-    const { loginAuthUser } = useContext(AuthContext);
-    //////////////////////////
-    const idRef = useRef(null);
-    const pwRef = useRef(null);
+  const navigate = useNavigate();
+  const { loginAuthUser } = useContext(AuthContext);
+  const idRef = useRef(null);
+  const pwRef = useRef(null);
 
-    const { email, password } = loginUser;
+  // 올바르게 state에서 nickname과 password를 구조 분해합니다.
+  const { nickname, password } = loginUser;
 
-    console.log(loginUser.email, loginUser['email']);
+  const onChangeHandler = (e) => {
+    setLoginUser({ ...loginUser, [e.target.name]: e.target.value });
+  };
 
-    const onChangeHandler = (e) => {
-        setLoginUser({ ...loginUser, [e.target.name]: e.target.value });
-    };
+  // 사용자 입력값(아이디와 비밀번호)이 올바른지 체크합니다.
+  const onSubmitHandler = (e) => {
+    e.preventDefault();
+    if (!nickname) {
+      alert("아이디를 입력하세요");
+      idRef.current.focus();
+      return;
+    }
+    if (!password) {
+      alert("비밀번호를 입력하세요");
+      pwRef.current.focus();
+      return;
+    }
+    requestLogin();
+  };
 
-    const onSubmitHandler = (e) => {
-        e.preventDefault();
-        //유효성 체크 - alert띄우고 입력 포커스 준뒤 return;
-        if (!email) {
-            alert('아이디를 입력하세요');
-            idRef.current.focus();
-            return;
-        }
-        if (!password) {
-            alert('비밀번호를 입력하세요');
-            pwRef.current.focus();
-            return;
-        }
-        //백엔드 쪽에 요청 보내기 - post /api/login   {email,password}
-        requestLogin();
-    };
-    const requestLogin = async () => {
-        let url = `http://localhost:7777/api/auth/login`;
-        try {
-            const response = await axios.post(url, loginUser);
-            //alert(JSON.stringify(response));
-            const { result } = response.data;
+  // 백엔드에 로그인 요청을 보냅니다.
+  const requestLogin = async () => {
+    const url = `http://localhost:7777/api/auth/login`;
+    try {
+      // loginUser는 { nickname, password }로 전송됩니다.
+      const response = await axios.post(url, loginUser);
+      console.log("로그인 응답:", response.data);
+      const { result } = response.data;
+      if (result === "success") {
+        const authUser = response.data.data;
+        alert(response.data.message + ` ${authUser.nickname}님 환영합니다`);
+        loginAuthUser(authUser);
+        const { accessToken, refreshToken } = response.data;
+        sessionStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", refreshToken);
+        inputClear();
+        setShow(false);
+        navigate("/");
+      } else {
+        const { message } = response.data;
+        alert(message);
+        inputClear();
+        idRef.current.focus();
+      }
+    } catch (error) {
+      console.error("로그인 에러:", error);
+      alert("Error: " + error);
+      inputClear();
+      setShow(false);
+    }
+  };
 
-            //1. 서버쪽에서 회원이 맞는지 체크해서 맞으면 로그인한 사용자의 정보(name, email)를 보낸다
-            //  ==> 먼저 구현하고 2번으로 수정
-            //2. 서버쪽에서 회원이 맞는지 체크해서 맞으면 인증토큰 (name, email,accessToken, refreshToken)을 보낸다
+  const inputClear = () => {
+    setLoginUser({ nickname: "", password: "" });
+  };
 
-            if (result === 'success') {
-                const authUser = response.data.data; //인증받은 사용자 정보를 가지고 있다
-                //==> 사용자 정보를 Side컴포넌트에서 "xxx님 로그인 중..." 식으로 사용
-                //===> authUser를 props로 전달하던지 아니면 context api를 사용해서 전역적인 state로 관리하던지...
-                alert(response.data.message + ` ${authUser.name}님 환영합니다`);
-                //////////////////////
-                loginAuthUser(authUser); //Context api를 통해 공급받은 loginAuthUser를 통해 전역 상태를 업데이트
-
-                //로그인한 회원정보를 sessionStorage에 저장하자
-                //sessionStorage.setItem('user', JSON.stringify(authUser));
-
-                const { accessToken, refreshToken } = response.data;
-                sessionStorage.setItem('accessToken', accessToken); //15분 사용 가능 => 세션 스토리지에 저장
-                localStorage.setItem('refreshToken', refreshToken); //1일 사용 가능 => 로컬 스토리지에 저장
-                ///////////////////////
-                inputClear();
-                setShow(false); //모달 창 닫기
-                navigate('/');
-            } else {
-                //로그인 실패인 경우
-                const { message } = response.data;
-                alert(message);
-                //setLoginUser({ email: '', password: '' });
-                //입력값 비우기
-                inputClear();
-                idRef.current.focus();
-            }
-        } catch (error) {
-            alert('Error: ' + error);
-            inputClear();
-            setShow(false); //모달창 닫기
-        }
-    };
-
-    const inputClear = () => {
-        setLoginUser({ ...loginUser, email: '', password: '' });
-    };
-
-    const css = {
-        background: {
-            border: '1px solid white',
-            backgroundColor: 'black',
-            margin: 0,
-        },
-        text: {
-            color: 'white',
-        },
-    };
-
-    return (
-        <div>
-            {/* 로그인 모달 */}
-            <Modal show={show} onHide={() => setShow(false)} centered>
-                <Modal.Body style={{ ...css.background, ...css.text }}>
-                    <Modal.Header closeButton style={{ ...css.text, border: 'none' }}>
-                        <style>
-                            {`
-                                .btn-close {
-                                   
-                                    background-color: black;
-                                    border: 1px solid white;
-                                    opacity: 1;
-                                    display: inline-flex;
-                                    justify-content: center;
-                                    align-items: center;
-                                 
-                                }
-                                .btn-close::before {
-                                    content: '×'; /* 기본 닫기 버튼 아이콘 */
-                                    color: white; /* 글씨 색상 변경 */
-                                    font-size: 1.5rem;
-                                    vertical-align: middle;
-                                    padding-bottom: 0.25rem;
-                                    margin: 0;
-                                }
-                             
-                            `}
-                        </style>
-                    </Modal.Header>
-                    <Row className="LoginForm">
-                        <Col className="px-4 mx-auto mb-5" xs={10} sm={10} md={8}>
-                            <Form onSubmit={onSubmitHandler}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label>ID</Form.Label>
-                                    <Form.Control
-                                        type="text"
-                                        id="email"
-                                        ref={idRef}
-                                        name="email"
-                                        onChange={onChangeHandler}
-                                        value={loginUser.email}
-                                        placeholder="ID (email)"
-                                    />
-                                </Form.Group>
-                                <Form.Group className="mb-3">
-                                    <Form.Label>비밀번호</Form.Label>
-                                    <Form.Control
-                                        type="password"
-                                        id="password"
-                                        ref={pwRef}
-                                        name="password"
-                                        onChange={onChangeHandler}
-                                        value={loginUser.password}
-                                        placeholder="password"
-                                    />
-                                </Form.Group>
-                                <div className="d-grid gap-2">
-                                    <Button className="mt-4" type="submit" variant="outline-light">
-                                        Login
-                                    </Button>
-                                </div>
-                            </Form>
-                        </Col>
-                    </Row>
-                </Modal.Body>
-            </Modal>
-        </div>
-    ); //리턴
+  return (
+    <div>
+      <Modal show={show} onHide={() => setShow(false)} centered>
+        <Modal.Body style={{ backgroundColor: "black", color: "white" }}>
+          <Modal.Header closeButton style={{ border: "none", color: "white" }}>
+            <style>
+              {`
+                .btn-close {
+                  background-color: black;
+                  border: 1px solid white;
+                  opacity: 1;
+                  display: inline-flex;
+                  justify-content: center;
+                  align-items: center;
+                }
+                .btn-close::before {
+                  content: '×';
+                  color: white;
+                  font-size: 1.5rem;
+                  vertical-align: middle;
+                  padding-bottom: 0.25rem;
+                  margin: 0;
+                }
+              `}
+            </style>
+          </Modal.Header>
+          <Row className="LoginForm">
+            <Col className="px-4 mx-auto mb-5" xs={10} sm={10} md={8}>
+              <Form onSubmit={onSubmitHandler}>
+                <Form.Group className="mb-3">
+                  <Form.Label>아이디</Form.Label>
+                  {/* 필드 이름, id, value를 모두 nickname으로 수정 */}
+                  <Form.Control
+                    type="text"
+                    id="nickname"
+                    ref={idRef}
+                    name="nickname"
+                    onChange={onChangeHandler}
+                    value={loginUser.nickname}
+                    placeholder="사용자 아이디"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>비밀번호</Form.Label>
+                  <Form.Control
+                    type="password"
+                    id="password"
+                    ref={pwRef}
+                    name="password"
+                    onChange={onChangeHandler}
+                    value={loginUser.password}
+                    placeholder="비밀번호"
+                  />
+                </Form.Group>
+                <div className="d-grid gap-2">
+                  <Button
+                    className="mt-4"
+                    type="submit"
+                    variant="outline-light"
+                  >
+                    Login
+                  </Button>
+                </div>
+              </Form>
+            </Col>
+          </Row>
+        </Modal.Body>
+      </Modal>
+    </div>
+  );
 }
