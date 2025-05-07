@@ -26,18 +26,18 @@ module.exports = (io) => {
    * - 현재 세부 티어가 2인 경우: 해당 티어의 1과, 다음 티어의 4 (예, "골드 2" → ["골드 1", "플래티넘 4"])
    * - 현재 세부 티어가 1인 경우: 다음 티어의 4만 (예, "아이언 1" → ["브론즈 4"])
    */
-  function getAllowedTargetRanks(currentRank) {
+  function getAllowedTargetRanks(uuid) {
     const tierOrder = [
-      "아이언",
-      "브론즈",
-      "실버",
-      "골드",
-      "플래티넘",
-      "에메랄드",
-      "다이아몬드",
-      "마스터",
-      "그랜드마스터",
-      "챌린저",
+      "IRON",
+      "BRONZE",
+      "SILVER",
+      "GOLD",
+      "PLATINUM",
+      "EMERALD",
+      "DIAMOND",
+      "MASTER",
+      "GRANDMASTER",
+      "CHALLENGER",
     ];
 
     // 만약 currentRank에 세부 티어 정보가 없다면 (예: "챌린저"),
@@ -50,17 +50,17 @@ module.exports = (io) => {
     const currentDivision = parseInt(divisionStr, 10);
 
     // 마스터 이상이면 매칭 불가
-    if (["마스터", "그랜드마스터", "챌린저"].includes(currentTier)) {
+    if (["MASTER", "GRANDMASTER", "CHALLENGER"].includes(currentTier)) {
       return [];
     }
 
     // 다이아몬드 처리
-    if (currentTier === "다이아몬드") {
+    if (currentTier === "DIAMOND") {
       if (currentDivision === 2) {
-        return ["다이아몬드 1", "마스터 1"];
+        return ["DIAMOND 1", "MASTER 1"];
       }
       if (currentDivision === 1) {
-        return ["마스터 1"];
+        return ["MASTER 1"];
       }
     }
 
@@ -94,14 +94,15 @@ module.exports = (io) => {
   */
   router.post("/request", async (req, res) => {
     // 클라이언트로부터 전달받은 값
-    const { targetRank, selectPosition, recentGames } = req.body;
+    const { nickname, uuid, targetRank, selectPosition } = req.body;
     const userFromToken = {
-      username: req.body.username,
-      currentRank: req.body.currentRank || "정보 없음",
+      username: req.body.nickname,
+      uuid: req.body.uuid,
     };
 
     // 목표 랭크 검증
-    const allowedTargets = getAllowedTargetRanks(userFromToken.currentRank);
+    const currentRank = getRecentMatchByUid(uuid)[0]["tier"];
+    const allowedTargets = getAllowedTargetRanks(currentRank);
     if (!allowedTargets.length) {
       return res.status(400).json({
         error: "현재 랭크로는 듀오 매치메이킹이 불가능합니다.",
@@ -114,11 +115,39 @@ module.exports = (io) => {
         allowed: allowedTargets,
       });
     }
-
     // OPScore 계산
     let opScore = 0;
-    if (recentGames && recentGames.length > 0) {
-      const opScoreCalc = new OPScoreCalculator(recentGames);
+    const matchIds = await getRecentMatchByUid(puuid);
+    if (!matchIds || matchIds.length === 0) {
+      return res.status(400).json({
+        error: "최근 5경기를 찾을 수 없습니다.",
+      });
+    }
+    let games = [];
+    for (const matchId of matchIds) {
+      const matchInfo = await getMatchInfoByMatchID(matchId);
+      if (!matchInfo || !matchInfo.info || !matchInfo.info.participants)
+        continue;
+
+      const participant = matchInfo.info.participants.find(
+        (participants) => participants.puuid === puuid
+      );
+      if (!participant) continue;
+
+      const gameData = {
+        kda: participant.challenges.kda,
+        totalMinionsKilled: participant.totalMinionsKilled,
+        neutralMinionsKilled: participant.neutralMinionsKilled,
+        goldEarned: participant.goldEarned,
+        visionScore: participant.visionScore,
+        win: participant.win,
+        playedtime: participant.timePlayed,
+      };
+
+      games.push(gameData);
+    }
+    if (games && games.length > 0) {
+      const opScoreCalc = new OPScoreCalculator(games);
       opScore = opScoreCalc.calculateOPScore();
     } else {
       opScore = Math.floor(Math.random() * 100) + 1;

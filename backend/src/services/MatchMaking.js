@@ -1,4 +1,3 @@
-// MatchMaking.js
 const Queue = require("./Queue");
 const riotAPI = require("../middlewares/riotAPI");
 
@@ -22,8 +21,8 @@ class MatchMaking {
   async addUserToQueue(user) {
     try {
       const summonerData = await riotAPI.getSummonerUidByName(
-        user.username,
-        user.tagLine
+        user.account_ID, // 기존 user.username -> user.account_ID 사용
+        user.tagLine || ""
       );
       const rankData = await riotAPI.getUserInfoByUid(summonerData.puuid);
       const soloEntry =
@@ -44,12 +43,12 @@ class MatchMaking {
 
       // 사용자 추가 후 대기열 업데이트
       this.queue.push(userWithRank);
-      console.log(`${user.username}가 큐에 추가되었습니다!`);
+      console.log(`${user.account_ID}가 큐에 추가되었습니다!`); // 변경: user.username -> user.account_ID
 
       // 대기열 변경 이벤트 전송 (필요시)
       if (this.io) {
         this.io.emit("queueUpdated", {
-          message: `${user.username}가 대기열에 추가되었습니다.`,
+          message: `${user.account_ID}가 대기열에 추가되었습니다.`, // 변경
           queueLength: this.queue.length,
         });
       }
@@ -58,11 +57,31 @@ class MatchMaking {
     }
   }
 
+  // 취소 기능: 지정된 account_ID를 가진 사용자를 대기열에서 제거
+  cancelUserFromQueue(account_ID) {
+    const initialLength = this.queue.length;
+    // 큐에서 account_ID가 일치하는 항목을 제거합니다.
+    this.queue = this.queue.filter((user) => user.account_ID !== account_ID);
+    if (this.queue.length < initialLength) {
+      console.log(`${account_ID}가 큐에서 취소(제거)되었습니다.`);
+      if (this.io) {
+        this.io.emit("queueUpdated", {
+          message: `${account_ID}가 매치메이킹 큐에서 제거되었습니다.`,
+          queueLength: this.queue.length,
+        });
+      }
+      return true;
+    } else {
+      console.log(`${account_ID}는 큐에 존재하지 않습니다.`);
+      return false;
+    }
+  }
+
   displayQueueState() {
     console.log("\n=== 현재 대기열 상태 ===");
     this.queue.forEach((user) => {
       console.log(
-        `- 이름: ${user.username}, 목표 랭크: ${user.targetRank}, 포지션: ${user.selectPosition}`
+        `- 계정: ${user.account_ID}, 목표 랭크: ${user.targetRank}, 포지션: ${user.selectPosition}`
       );
     });
     console.log("=========================");
@@ -169,7 +188,7 @@ class MatchMaking {
       const user1 = this.queue[i];
       for (let j = i + 1; j < this.queue.length; j++) {
         const user2 = this.queue[j];
-        const pairKey = `${user1.username}-${user2.username}-${dynamicOffset}`;
+        const pairKey = `${user1.account_ID}-${user2.account_ID}-${dynamicOffset}`; // 변경
         if (this.attemptedPairs.has(pairKey)) continue;
 
         const failedConditions = [];
@@ -197,15 +216,17 @@ class MatchMaking {
         }
 
         if (failedConditions.length === 0) {
-          console.log(`✅ 매치 성공: ${user1.username}와 ${user2.username}`);
+          console.log(
+            `✅ 매치 성공: ${user1.account_ID}와 ${user2.account_ID}`
+          ); // 변경
 
           // 매칭 성공 시 각 사용자의 대기 시간을 계산
           const waitTimeUser1 = currentTime - user1.enqueueTime;
           const waitTimeUser2 = currentTime - user2.enqueueTime;
           console.log(
-            `사용자 ${user1.username} 대기 시간: ${Math.floor(
+            `사용자 ${user1.account_ID} 대기 시간: ${Math.floor(
               waitTimeUser1 / 1000
-            )}초, 사용자 ${user2.username} 대기 시간: ${Math.floor(
+            )}초, 사용자 ${user2.account_ID} 대기 시간: ${Math.floor(
               waitTimeUser2 / 1000
             )}초`
           );
@@ -219,7 +240,9 @@ class MatchMaking {
           this.attemptedPairs.clear();
           return [user1, user2];
         } else {
-          console.log(`❌ 매치 실패: ${user1.username}와 ${user2.username}`);
+          console.log(
+            `❌ 매치 실패: ${user1.account_ID}와 ${user2.account_ID}` // 변경
+          );
           console.log("실패 조건:", failedConditions.join(", "));
           this.attemptedPairs.add(pairKey);
         }
@@ -278,12 +301,12 @@ class MatchMaking {
   displayMatchInfo(user1, user2) {
     console.log("\n=== 매칭된 사용자 정보 ===");
     console.log(`사용자 1:`);
-    console.log(`- 이름: ${user1.username}`);
+    console.log(`- 계정: ${user1.account_ID}`); // 변경
     console.log(`- 포지션: ${user1.selectPosition}`);
     console.log(`- 현재 티어: ${user1.CurrentRank}`);
     console.log(`- 목표 티어: ${user1.targetRank}`);
     console.log(`사용자 2:`);
-    console.log(`- 이름: ${user2.username}`);
+    console.log(`- 계정: ${user2.account_ID}`); // 변경
     console.log(`- 포지션: ${user2.selectPosition}`);
     console.log(`- 현재 티어: ${user2.CurrentRank}`);
     console.log(`- 목표 티어: ${user2.targetRank}`);

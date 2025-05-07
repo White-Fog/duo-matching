@@ -1,3 +1,4 @@
+// src/index.js (또는 server.js)
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
@@ -7,11 +8,11 @@ const path = require("path");
 const cors = require("cors");
 
 // 라우터 가져오기
-
 const indexRouter = require("./src/routes/indexRouter");
 const userRouter = require("./src/routes/userRouter");
 const postRouter = require("./src/routes/postRouter");
 const loginRouter = require("./src/routes/loginRouter");
+const matchRouterFactory = require("./src/routes/matchRouter");
 
 const PORT = process.env.PORT || 7777;
 
@@ -29,15 +30,15 @@ app.use("/", indexRouter);
 app.use("/api/users", userRouter);
 app.use("/api/posts", postRouter);
 app.use("/api/auth", loginRouter);
-// app.use("/services/Matchmaking", matchRouter);
 
-// 기본 라우트
+// 기본 라우트 설정
 app.get("/", (req, res) => {
   res.send("Socket.io와 Express 서버가 실행중입니다!");
 });
 
 // HTTP 서버 생성
 const server = http.createServer(app);
+
 // Socket.io를 HTTP 서버에 적용 (CORS 설정 포함)
 const io = socketIo(server, {
   cors: {
@@ -46,24 +47,18 @@ const io = socketIo(server, {
   },
 });
 
-// matchRouter에 io 인스턴스를 주입하여 초기화
-/*const matchRouterFactory = require("./src/routes/matchRouter");
+// matchRouter에 io 인스턴스를 주입하여 초기화 후 등록
+// 클라이언트가 /api/matchmaking/request, /api/matchmaking/cancel 등으로 호출할 수 있도록 함.
 const matchRouter = matchRouterFactory(io);
-app.use("/services/matchmaking", matchRouter);
-*/
+app.use("/api/matchmaking", matchRouter);
 
 // Socket.io 연결 이벤트 처리
 io.on("connection", (socket) => {
   console.log("새 클라이언트 연결:", socket.id);
-
-  // 클라이언트에서 "exampleEvent" 이벤트 수신 시 처리
   socket.on("exampleEvent", (data) => {
     console.log("exampleEvent로 받은 데이터:", data);
-    // 클라이언트에 'exampleResponse' 이벤트로 응답 전송
     socket.emit("exampleResponse", { message: "메시지 잘 받았습니다!" });
   });
-
-  // 클라이언트 연결 종료 이벤트 처리
   socket.on("disconnect", () => {
     console.log("클라이언트 연결 종료:", socket.id);
   });
