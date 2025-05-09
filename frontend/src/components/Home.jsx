@@ -63,11 +63,8 @@ const Home = ({ onShowLogin }) => {
       const response = await axios.post(
         "http://localhost:7777/api/matchmaking/request",
         {
-          username: user.nickname, // 로그인한 사용자의 아이디
-          uuid: user.uu_ID, // 로그인한 사용자의 아이디
           targetRank: targetTier, // 목표 티어 (예: "bronze4")
           selectPosition: position, // 선택한 포지션 (예: "top")
-          // 필요하다면 recentGames 등의 데이터를 추가할 수 있음.
         }
       );
       alert(response.data.message);

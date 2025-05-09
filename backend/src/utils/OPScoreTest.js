@@ -8,19 +8,15 @@ const OPScoreCalculator = require("../services/OPScore"); // OPScoreCalculator �
 
 async function fetchAndCalculateOPScore(gameName, tagLine) {
   try {
-    console.log(`🔍 ${gameName}#${tagLine}의 최근 5경기 OP Score 계산 시작...`);
-
     // 🔹 1. 소환사 UID 가져오기
     const summonerData = await getSummonerUidByName(gameName, tagLine);
     if (!summonerData) throw new Error("소환사 정보를 찾을 수 없습니다.");
     const puuid = summonerData.puuid;
-    console.log(`✅ 소환사 UID: ${puuid}`);
 
     // 🔹 2. 최근 5경기 가져오기
     const matchIds = await getRecentMatchByUid(puuid);
     if (!matchIds || matchIds.length === 0)
       throw new Error("최근 5경기를 찾을 수 없습니다.");
-    console.log(`✅ 최근 5경기 ID: ${matchIds.join(", ")}`);
     let games = [];
     for (const matchId of matchIds) {
       const matchInfo = await getMatchInfoByMatchID(matchId);
@@ -45,7 +41,6 @@ async function fetchAndCalculateOPScore(gameName, tagLine) {
       };
 
       games.push(gameData);
-      console.log(gameData);
     }
 
     if (games.length === 0) throw new Error("경기 데이터가 없습니다.");
@@ -78,6 +73,3 @@ async function fetchAndCalculateOPScore(gameName, tagLine) {
     console.error("❌ OP Score 계산 중 오류 발생:", error.message);
   }
 }
-const gameName = "bluelemonade"; // 테스트할 소환사 이름
-const tagLine = "lemon"; // 태그라인 (한국 서버)
-fetchAndCalculateOPScore(gameName, tagLine);
