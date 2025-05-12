@@ -60,9 +60,13 @@ const Home = ({ onShowLogin }) => {
       return;
     }
     try {
+      console.log(user);
       const response = await axios.post(
         "http://localhost:7777/api/matchmaking/request",
         {
+          userid: user.id, // 로그인한 사용자의 ID
+          username: user.nickname, // 로그인한 사용자의 닉네임
+          userAccountId: user.account_ID, // 로그인한 사용자의 라이엇 계정
           targetRank: targetTier, // 목표 티어 (예: "bronze4")
           selectPosition: position, // 선택한 포지션 (예: "top")
         }

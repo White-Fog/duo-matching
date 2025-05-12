@@ -65,9 +65,26 @@ async function getUserInfoByUid(puuid) {
     return null;
   }
 }
+
+//get user Account info
+async function getAccountInfoByUid(puuid) {
+  try {
+    const response = await axios.get(
+      `https://asia.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}`,
+      {
+        headers: { "X-Riot-Token": RIOT_API_KEY },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching summoner data:", error);
+    return null;
+  }
+}
 module.exports = {
   getSummonerUidByName,
   getRecentMatchByUid,
   getMatchInfoByMatchID,
   getUserInfoByUid,
+  getAccountInfoByUid,
 };

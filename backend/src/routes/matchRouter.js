@@ -6,7 +6,7 @@ const MatchMaking = require("../services/MatchMaking"); // 매치메이킹 결�
 const OPScoreCalculator = require("../services/OPScore"); // OP 스코어 계산 모듈
 const matchManager = require("../services/matchManager"); // 응답(수락/거절) 관리 모듈
 const riotAPI = require("../middlewares/riotAPI");
-const db = require("../models/db"); // DB 모듈
+const pool = require("../models/db"); // DB 모듈
 
 module.exports = (io) => {
   const router = express.Router();
@@ -85,63 +85,38 @@ module.exports = (io) => {
    */
   router.post("/request", async (req, res) => {
     try {
-      const { token, targetRank, selectPosition, nickname } = req.body;
+      const { userid, username, userAccountId, targetRank, selectPosition } =
+        req.body;
+      /*{
+          targetRank: targetTier, // 목표 티어 (예: "bronze4")
+          selectPosition: position, // 선택한 포지션 (예: "top")
+        }*/
 
-      // 1. DB에서 토큰으로 Riot ID 조회 (컬럼명: account_ID)
-      const queryResult = await db.query(
-        "SELECT account_ID FROM members WHERE refreshToken = ?",
-        [token]
+      // 1. DB에서 토큰으로 Riot ID 조회 (컬럼명: id)
+
+      const [queryResult] = await pool.query(
+        `SELECT uu_ID FROM members WHERE id = ?`,
+        [userid]
       );
+      console.log(userid, username, userAccountId, targetRank, selectPosition);
       console.log("DB queryResult =", queryResult);
       if (!queryResult || queryResult.length === 0) {
         return res
           .status(400)
-          .json({ error: "사용자 정보를 찾을 수 없습니다." });
+          .json({ error: `사용자 정보를 찾을 수 없습니다.` });
       }
-
-      // DB에 저장된 Riot ID 전체 (예: "SummonerName#Tag")
-      const fullRiotId = queryResult[0].account_ID;
-      console.log("fullRiotId =", fullRiotId);
-      if (!fullRiotId) {
-        return res.status(400).json({ error: "Riot 계정 ID 정보가 없습니다." });
-      }
-
-      // 2. 분리: Riot ID를 '#'를 기준으로 분할하여 gameName과 tagLine 추출
-      const [gameName, tagLine] = fullRiotId.split("#");
-      if (!gameName || !tagLine) {
-        return res
-          .status(400)
-          .json({ error: "Riot ID 형식이 올바르지 않습니다." });
-      }
-
-      // URL 인코딩을 적용하여 요청
-      const encodedGameName = encodeURIComponent(gameName);
-      const encodedTagLine = encodeURIComponent(tagLine);
-
-      // 3. Riot API 호출: 소환사 정보 조회하여 puuid 확보
-      const summonerData = await riotAPI.getSummonerUidByName(
-        encodedGameName,
-        encodedTagLine
-      );
-      if (!summonerData || !summonerData.puuid) {
-        return res
-          .status(400)
-          .json({ error: "소환사 정보를 찾을 수 없습니다." });
-      }
-      const puuid = summonerData.puuid;
+      const uu_id = queryResult[0].uu_ID;
 
       // 4. puuid를 이용해 랭크 정보 조회하여 currentRank 생성
-      const rankData = await riotAPI.getUserInfoByUid(puuid);
-      if (!rankData || rankData.length === 0) {
-        return res.status(400).json({ error: "랭크 정보를 찾을 수 없습니다." });
+      const userInfo = await riotAPI.getUserInfoByUid(uu_id);
+      if (!userInfo || userInfo.length === 0) {
+        return res.status(400).json({ error: "유저 정보를 찾을 수 없습니다." });
       }
-      const soloEntry =
-        rankData.find((entry) => entry.queueType === "RANKED_SOLO_5x5") ||
-        rankData[0];
-      const currentRank = `${soloEntry.tier} ${soloEntry.rank}`;
+      console.log("userInfo", userInfo[0].tier);
+      const currentRank = `${userInfo[0].tier}`;
 
       // 5. 허용된 목표 랭크 옵션 계산 및 검증
-      const allowedTargets = getAllowedTargetRanks(currentRank);
+      /*const allowedTargets = getAllowedTargetRanks(currentRank);
       if (!allowedTargets.length) {
         return res
           .status(400)
@@ -154,9 +129,9 @@ module.exports = (io) => {
           allowed: allowedTargets,
         });
       }
-
+      */
       // 6. OPScore 계산: puuid 기반 최근 5경기 정보 조회
-      const matchIds = await riotAPI.getRecentMatchByUid(puuid);
+      const matchIds = await riotAPI.getRecentMatchByUid(uu_id);
       if (!matchIds || matchIds.length === 0) {
         return res
           .status(400)
@@ -168,7 +143,7 @@ module.exports = (io) => {
         if (!matchInfo || !matchInfo.info || !matchInfo.info.participants)
           continue;
         const participant = matchInfo.info.participants.find(
-          (p) => p.puuid === puuid
+          (p) => p.uu_id === uu_id
         );
         if (!participant) continue;
         games.push({
@@ -191,14 +166,14 @@ module.exports = (io) => {
 
       // 7. 사용자 데이터를 구성하여 대기열에 등록
       const userData = {
-        username: nickname,
-        tagLine: "",
+        username: username,
         CurrentRank: currentRank,
+        puuid: uu_id,
         targetRank,
         selectPosition,
         enqueueTime: Date.now(),
         OPScore: opScore,
-        account_ID: fullRiotId,
+        account_ID: userAccountId,
       };
 
       await matchmaking.addUserToQueue(userData);

@@ -20,11 +20,8 @@ class MatchMaking {
 
   async addUserToQueue(user) {
     try {
-      const summonerData = await riotAPI.getSummonerUidByName(
-        user.account_ID, // 기존 user.username -> user.account_ID 사용
-        user.tagLine || ""
-      );
-      const rankData = await riotAPI.getUserInfoByUid(summonerData.puuid);
+      const rankData = await riotAPI.getUserInfoByUid(user.puuid);
+      console.log("사용자명:", user.account_ID);
       const soloEntry =
         rankData.find((entry) => entry.queueType === "RANKED_SOLO_5x5") ||
         rankData[0];
@@ -43,12 +40,12 @@ class MatchMaking {
 
       // 사용자 추가 후 대기열 업데이트
       this.queue.push(userWithRank);
-      console.log(`${user.account_ID}가 큐에 추가되었습니다!`); // 변경: user.username -> user.account_ID
+      console.log(`${user.account_ID}가 큐에 추가되었습니다!`);
 
       // 대기열 변경 이벤트 전송 (필요시)
       if (this.io) {
         this.io.emit("queueUpdated", {
-          message: `${user.account_ID}가 대기열에 추가되었습니다.`, // 변경
+          message: `${user.account_ID}가 대기열에 추가되었습니다.`,
           queueLength: this.queue.length,
         });
       }
@@ -81,7 +78,7 @@ class MatchMaking {
     console.log("\n=== 현재 대기열 상태 ===");
     this.queue.forEach((user) => {
       console.log(
-        `- 계정: ${user.account_ID}, 목표 랭크: ${user.targetRank}, 포지션: ${user.selectPosition}`
+        `- 계정: ${user.account_ID}, 현재 랭크: ${user.CurrentRank}, 목표 랭크: ${user.targetRank}, 포지션: ${user.selectPosition}`
       );
     });
     console.log("=========================");
