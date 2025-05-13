@@ -1,5 +1,6 @@
 const Queue = require("./Queue");
 const riotAPI = require("../middlewares/riotAPI");
+const matchManager = require("./matchManager");
 
 class MatchMaking {
   // 생성자에 io 인스턴스 전달 (실시간 이벤트 발송용)
@@ -108,17 +109,20 @@ class MatchMaking {
         continue;
       }
 
-      const result = await this.findMatch();
-      if (result) {
+      // findMatch()에서 반환한 결과는 매치 객체(matchManager.createMatch로 생성된)임.
+      const match = await this.findMatch();
+      if (match) {
         console.log("매칭 완료:");
-        this.displayMatchInfo(result[0], result[1]);
-        // 매칭 성공 시 Socket.io 이벤트를 통해 프론트엔드에 알림 전송 (개별 waitTime 포함)
+        // 매치 객체 내부의 user1.data, user2.data 사용
+        this.displayMatchInfo(match.user1.data, match.user2.data);
+        // 매칭 성공 시 Socket.io 이벤트를 통해 프론트엔드에 알림 전송
         if (this.io) {
           this.io.emit("matchSuccess", {
             message: "매칭이 확정되었습니다.",
+            matchId: match.id,
             opponent: {
-              user1: result[0],
-              user2: result[1],
+              user1: match.user1.data,
+              user2: match.user2.data,
             },
           });
         }
@@ -185,7 +189,7 @@ class MatchMaking {
       const user1 = this.queue[i];
       for (let j = i + 1; j < this.queue.length; j++) {
         const user2 = this.queue[j];
-        const pairKey = `${user1.account_ID}-${user2.account_ID}-${dynamicOffset}`; // 변경
+        const pairKey = `${user1.account_ID}-${user2.account_ID}-${dynamicOffset}`;
         if (this.attemptedPairs.has(pairKey)) continue;
 
         const failedConditions = [];
@@ -215,7 +219,7 @@ class MatchMaking {
         if (failedConditions.length === 0) {
           console.log(
             `✅ 매치 성공: ${user1.account_ID}와 ${user2.account_ID}`
-          ); // 변경
+          );
 
           // 매칭 성공 시 각 사용자의 대기 시간을 계산
           const waitTimeUser1 = currentTime - user1.enqueueTime;
@@ -235,10 +239,13 @@ class MatchMaking {
           this.lastOffsetUpdate = undefined;
           this.lastDynamicOffset = 0;
           this.attemptedPairs.clear();
-          return [user1, user2];
+
+          // matchManager의 createMatch()를 사용하여 in-memory 매치 객체 생성
+          const match = matchManager.createMatch(user1, user2);
+          return match;
         } else {
           console.log(
-            `❌ 매치 실패: ${user1.account_ID}와 ${user2.account_ID}` // 변경
+            `❌ 매치 실패: ${user1.account_ID}와 ${user2.account_ID}`
           );
           console.log("실패 조건:", failedConditions.join(", "));
           this.attemptedPairs.add(pairKey);
@@ -298,12 +305,12 @@ class MatchMaking {
   displayMatchInfo(user1, user2) {
     console.log("\n=== 매칭된 사용자 정보 ===");
     console.log(`사용자 1:`);
-    console.log(`- 계정: ${user1.account_ID}`); // 변경
+    console.log(`- 계정: ${user1.account_ID}`);
     console.log(`- 포지션: ${user1.selectPosition}`);
     console.log(`- 현재 티어: ${user1.CurrentRank}`);
     console.log(`- 목표 티어: ${user1.targetRank}`);
     console.log(`사용자 2:`);
-    console.log(`- 계정: ${user2.account_ID}`); // 변경
+    console.log(`- 계정: ${user2.account_ID}`);
     console.log(`- 포지션: ${user2.selectPosition}`);
     console.log(`- 현재 티어: ${user2.CurrentRank}`);
     console.log(`- 목표 티어: ${user2.targetRank}`);

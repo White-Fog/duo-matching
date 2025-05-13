@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const MatchMaking = require("../services/MatchMaking"); // 매치메이킹 결정 모듈 (생성자에 io를 받도록 수정됨)
 const OPScoreCalculator = require("../services/OPScore"); // OP 스코어 계산 모듈
-const matchManager = require("../services/matchManager"); // 응답(수락/거절) 관리 모듈
+const matchManager = require("../services/matchManager"); // 인메모리 매치 관리 모듈
 const riotAPI = require("../middlewares/riotAPI");
 const pool = require("../models/db"); // DB 모듈
 
@@ -81,19 +81,14 @@ module.exports = (io) => {
    *  - selectPosition: 선택한 포지션
    *  - nickname: 웹상에 표시할 닉네임
    *
-   * DB에 저장된 Riot ID는 "SummonerName#Tag" 형식으로 저장되어 있다 가정합니다.
+   * DB에 저장된 Riot ID는 "SummonerName#Tag" 형식으로 저장되어 있다고 가정합니다.
    */
   router.post("/request", async (req, res) => {
     try {
       const { userid, username, userAccountId, targetRank, selectPosition } =
         req.body;
-      /*{
-          targetRank: targetTier, // 목표 티어 (예: "bronze4")
-          selectPosition: position, // 선택한 포지션 (예: "top")
-        }*/
 
-      // 1. DB에서 토큰으로 Riot ID 조회 (컬럼명: id)
-
+      // DB에서 토큰으로 Riot ID 조회 (컬럼명: id)
       const [queryResult] = await pool.query(
         `SELECT uu_ID FROM members WHERE id = ?`,
         [userid]
@@ -103,11 +98,11 @@ module.exports = (io) => {
       if (!queryResult || queryResult.length === 0) {
         return res
           .status(400)
-          .json({ error: `사용자 정보를 찾을 수 없습니다.` });
+          .json({ error: "사용자 정보를 찾을 수 없습니다." });
       }
       const uu_id = queryResult[0].uu_ID;
 
-      // 4. puuid를 이용해 랭크 정보 조회하여 currentRank 생성
+      // puuid를 이용해 랭크 정보 조회하여 currentRank 생성
       const userInfo = await riotAPI.getUserInfoByUid(uu_id);
       if (!userInfo || userInfo.length === 0) {
         return res.status(400).json({ error: "유저 정보를 찾을 수 없습니다." });
@@ -115,22 +110,7 @@ module.exports = (io) => {
       console.log("userInfo", userInfo[0].tier);
       const currentRank = `${userInfo[0].tier}`;
 
-      // 5. 허용된 목표 랭크 옵션 계산 및 검증
-      /*const allowedTargets = getAllowedTargetRanks(currentRank);
-      if (!allowedTargets.length) {
-        return res
-          .status(400)
-          .json({ error: "현재 랭크로는 듀오 매치메이킹이 불가능합니다." });
-      }
-      if (!allowedTargets.includes(targetRank)) {
-        return res.status(400).json({
-          error:
-            "선택한 목표 랭크가 현재 랭크 기준 상위 2 티어 규칙에 맞지 않습니다.",
-          allowed: allowedTargets,
-        });
-      }
-      */
-      // 6. OPScore 계산: puuid 기반 최근 5경기 정보 조회
+      // OPScore 계산: puuid 기반 최근 5경기 정보 조회
       const matchIds = await riotAPI.getRecentMatchByUid(uu_id);
       if (!matchIds || matchIds.length === 0) {
         return res
@@ -164,9 +144,9 @@ module.exports = (io) => {
         opScore = Math.floor(Math.random() * 100) + 1;
       }
 
-      // 7. 사용자 데이터를 구성하여 대기열에 등록
+      // 사용자 데이터를 구성하여 대기열에 등록
       const userData = {
-        username: username,
+        username,
         CurrentRank: currentRank,
         puuid: uu_id,
         targetRank,
@@ -188,8 +168,19 @@ module.exports = (io) => {
     }
   });
 
+  /**
+   * [매치 응답]
+   * 클라이언트는 POST /api/matchmaking/respond에 matchId, accepted, username을 전달합니다.
+   * matchManager의 in-memory 매치 정보를 기반으로 응답을 처리하고,
+   * 최종 확정 시 Socket.IO 이벤트를 통해 matchId와 상대 정보를 전달합니다.
+   */
   router.post("/respond", async (req, res) => {
     const { matchId, accepted, username } = req.body;
+    if (!matchId) {
+      return res
+        .status(400)
+        .json({ error: "매치 응답을 위해 matchId가 필요합니다." });
+    }
     try {
       const responseResult = matchManager.recordResponse(
         matchId,
@@ -206,18 +197,27 @@ module.exports = (io) => {
             match.user1.data.username === username
               ? match.user2.data
               : match.user1.data;
+
+          // Socket.IO 이벤트 발행: matchId와 상대 정보를 클라이언트에 전달
+          io.emit("matchSuccess", {
+            matchId: match.id,
+            opponent: {
+              user1: match.user1.data,
+              user2: match.user2.data,
+            },
+          });
+          // 매칭 성공 후 in-memory에서 해당 매치 정보를 제거
           matchManager.removeMatch(matchId);
           return res.status(200).json({
             message: "매칭이 확정되었습니다.",
+            matchId: match.id,
             opponent,
           });
         } else {
           matchManager.removeMatch(matchId);
-          await matchmaking.addUserToQueue(match.user1.data);
-          await matchmaking.addUserToQueue(match.user2.data);
           return res.status(200).json({
             message:
-              "매칭이 실패하였습니다. 두 사용자를 다시 대기열에 재등록하였습니다.",
+              "매칭에 실패하였습니다. 두 사용자를 다시 대기열에 재등록하였습니다.",
           });
         }
       } else {
@@ -229,6 +229,38 @@ module.exports = (io) => {
       console.error("매칭 응답 처리 오류:", error.message);
       return res.status(500).json({
         error: "매칭 응답 처리 중 오류 발생",
+        detail: error.message,
+      });
+    }
+  });
+
+  /**
+   * [매치 취소]
+   * 클라이언트는 POST /api/matchmaking/cancel에 userAccountId를 전달하여
+   * 대기열에서 해당 사용자를 제거합니다.
+   */
+  router.post("/cancel", async (req, res) => {
+    try {
+      const { userAccountId } = req.body;
+      if (!userAccountId) {
+        return res
+          .status(400)
+          .json({ error: "취소할 사용자의 userAccountId가 필요합니다." });
+      }
+      const success = matchmaking.cancelUserFromQueue(userAccountId);
+      if (success) {
+        return res
+          .status(200)
+          .json({ message: `${userAccountId}의 매치메이킹이 취소되었습니다.` });
+      } else {
+        return res
+          .status(400)
+          .json({ error: "해당 사용자가 대기열에 존재하지 않습니다." });
+      }
+    } catch (error) {
+      console.error("매치메이킹 취소 중 오류:", error.message);
+      return res.status(500).json({
+        error: "매치메이킹 취소 중 오류 발생",
         detail: error.message,
       });
     }

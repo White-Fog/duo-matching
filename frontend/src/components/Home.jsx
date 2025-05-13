@@ -88,7 +88,7 @@ const Home = ({ onShowLogin }) => {
       const response = await axios.post(
         "http://localhost:7777/api/matchmaking/cancel",
         {
-          username: user.nickname,
+          userAccountId: user.account_ID,
         }
       );
       alert(response.data.message);
