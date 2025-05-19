@@ -11,11 +11,11 @@ class MatchManager {
   // 새로운 매치를 생성하는 메소드
   createMatch(user1, user2) {
     const matchId = uuidv4(); // 고유 매치 식별자 생성
+    console.log("매치 생성:", matchId);
     const match = {
       id: matchId,
-      user1: { data: user1 },
-      user2: { data: user2 },
-      // 필요에 따라 추가 정보 저장 가능
+      user1: { accepted: null, data: user1 },
+      user2: { accepted: null, data: user2 },
       createdAt: Date.now(),
     };
     this.matches[matchId] = match;
@@ -23,17 +23,25 @@ class MatchManager {
   }
 
   // 매치 응답을 기록하고 처리하는 메소드 (예시)
-  recordResponse(matchId, username, accepted) {
+  recordResponse(matchId, accepted, account_ID) {
     const match = this.matches[matchId];
     if (!match) {
       return { error: "매치를 찾을 수 없습니다." };
     }
+    if (match.user1.data.account_ID === account_ID) {
+      match.user1.accepted = accepted;
+    } else if (match.user2.data.account_ID === account_ID) {
+      match.user2.accepted = accepted;
+    } else {
+      return { error: "해당 매치에 사용자가 포함되어 있지 않습니다." };
+    }
+    const finalized =
+      match.user1.accepted !== null && match.user2.accepted !== null;
 
-    // 단순한 예시로 양쪽 사용자 모두 수락하면 성공 처리한다고 가정.
-    // 실제 로직에서는 각 사용자의 응답을 별도로 기록하고,
-    // 양쪽이 모두 수락했을 때 성공이라고 처리할 수 있습니다.
-    // 여기서는 응답을 기록한 후 바로 최종 확정(finalized)되었다고 가정.
-    return { finalized: true, successful: accepted, match };
+    const successful =
+      finalized && match.user1.accepted && match.user2.accepted;
+
+    return { finalized, successful, match };
   }
 
   // 해당 매치를 메모리에서 제거하는 메소드

@@ -1,0 +1,109 @@
+/* RateOpponent.css */
+.rate-opponent-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 30px;
+  background: #171717;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0, 255, 157, 0.2);
+  text-align: center;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  position: relative;
+}
+
+.rate-opponent-container h2 {
+  font-size: 2rem;
+  margin-bottom: 20px;
+  color: #00ff9d;
+  text-shadow: 0 0 10px rgba(0, 255, 157, 0.3);
+}
+
+.rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.rating-buttons button {
+  background: gray;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.rating-buttons button:hover {
+  background: #333;
+}
+
+.rating-buttons button.selected {
+  background: blue;
+}
+
+.submit-rating-btn {
+  background: #00ff9d;
+  color: #000;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 20px;
+}
+
+.submit-rating-btn:hover {
+  background: #00cc7d;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 255, 157, 0.3);
+}
+
+.overlay-spinner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #00ff9d;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.message {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+}
+
+.message.success {
+  background: #00ff9d;
+  color: #000;
+}
+
+.message.error {
+  background: #ff4d4d;
+  color: #fff;
+}

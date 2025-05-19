@@ -13,6 +13,7 @@ const userRouter = require("./src/routes/userRouter");
 const postRouter = require("./src/routes/postRouter");
 const loginRouter = require("./src/routes/loginRouter");
 const matchRouterFactory = require("./src/routes/matchRouter");
+const ratingRouter = require("./src/routes/ratingRouter");
 
 const PORT = process.env.PORT || 7777;
 
@@ -30,6 +31,7 @@ app.use("/", indexRouter);
 app.use("/api/users", userRouter);
 app.use("/api/posts", postRouter);
 app.use("/api/auth", loginRouter);
+app.use("/api/rating", ratingRouter);
 
 // 기본 라우트 설정
 app.get("/", (req, res) => {

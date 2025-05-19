@@ -175,7 +175,7 @@ module.exports = (io) => {
    * 최종 확정 시 Socket.IO 이벤트를 통해 matchId와 상대 정보를 전달합니다.
    */
   router.post("/respond", async (req, res) => {
-    const { matchId, accepted, username } = req.body;
+    const { matchId, accepted, account_ID } = req.body;
     if (!matchId) {
       return res
         .status(400)
@@ -184,8 +184,8 @@ module.exports = (io) => {
     try {
       const responseResult = matchManager.recordResponse(
         matchId,
-        username,
-        accepted
+        accepted,
+        account_ID
       );
       if (responseResult.error) {
         return res.status(400).json({ error: responseResult.error });
@@ -194,7 +194,7 @@ module.exports = (io) => {
         const match = responseResult.match;
         if (responseResult.successful) {
           const opponent =
-            match.user1.data.username === username
+            match.user1.data.account_ID === account_ID
               ? match.user2.data
               : match.user1.data;
 

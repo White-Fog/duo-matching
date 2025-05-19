@@ -114,15 +114,15 @@ class MatchMaking {
       if (match) {
         console.log("매칭 완료:");
         // 매치 객체 내부의 user1.data, user2.data 사용
-        this.displayMatchInfo(match.user1.data, match.user2.data);
+        //this.displayMatchInfo(match.user1.data, match.user2.data);
         // 매칭 성공 시 Socket.io 이벤트를 통해 프론트엔드에 알림 전송
         if (this.io) {
           this.io.emit("matchSuccess", {
             message: "매칭이 확정되었습니다.",
             matchId: match.id,
             opponent: {
-              user1: match.user1.data,
-              user2: match.user2.data,
+              user1: { accepted: null, data: match.user1.data },
+              user2: { accepted: null, data: match.user2.data },
             },
           });
         }
@@ -302,7 +302,7 @@ class MatchMaking {
     return true;
   }
 
-  displayMatchInfo(user1, user2) {
+  /*displayMatchInfo(user1, user2) {
     console.log("\n=== 매칭된 사용자 정보 ===");
     console.log(`사용자 1:`);
     console.log(`- 계정: ${user1.account_ID}`);
@@ -315,7 +315,7 @@ class MatchMaking {
     console.log(`- 현재 티어: ${user2.CurrentRank}`);
     console.log(`- 목표 티어: ${user2.targetRank}`);
   }
-
+*/ 1;
   delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

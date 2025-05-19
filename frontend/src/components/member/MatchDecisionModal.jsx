@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "react-bootstrap/Modal";
 import Button from "react-bootstrap/Button";
 import axios from "axios";
 import socket from "../../socket"; // Socket.IO 클라이언트 연결 모듈
+import { AuthContext } from "./AuthContext";
 
 const MatchDecisionModal = () => {
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
   const [matchData, setMatchData] = useState(null);
@@ -51,11 +53,17 @@ const MatchDecisionModal = () => {
         {
           matchId: matchData.matchId,
           accepted: true,
-          username: "YOUR_USERNAME", // 실제 로그인 사용자명 반영
+          account_ID: user.account_ID, // 실제 로그인 사용자명 반영
         }
       );
       console.log("수락 응답:", response.data);
-      navigate("/match/success");
+      // 서버 응답 메시지를 확인해서 최종 확정 메시지일 때만 페이지 전환
+      if (response.data.message.includes("확정")) {
+        navigate("/match-success");
+      } else {
+        // 아직 상대방 응답을 기다리는 상태라면 모달을 유지하거나 대기 상태 메시지를 표시합니다.
+        console.log("상대방의 응답을 기다리는 중입니다.");
+      }
     } catch (error) {
       console.error(
         "매치 수락 중 오류:",
@@ -80,7 +88,7 @@ const MatchDecisionModal = () => {
         {
           matchId: matchData.matchId,
           accepted: false,
-          username: "YOUR_USERNAME",
+          account_ID: user.account_ID,
         }
       );
       console.log("거절 응답:", response.data);
