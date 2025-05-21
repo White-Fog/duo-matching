@@ -315,7 +315,7 @@ class MatchMaking {
     console.log(`- 현재 티어: ${user2.CurrentRank}`);
     console.log(`- 목표 티어: ${user2.targetRank}`);
   }
-*/ 1;
+*/
   delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }

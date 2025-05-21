@@ -15,18 +15,19 @@ const MatchDecisionModal = () => {
 
   useEffect(() => {
     // 서버에서 매치 성공 이벤트 수신
-    socket.on("matchSuccess", (data) => {
-      console.log("매치 성공 이벤트 수신:", data);
+    socket.on("matchSuccess", (matchData) => {
+      console.log("매치 성공 이벤트 수신:", matchData);
       // data에 matchId와 opponent 정보가 있다고 가정함
-      setMatchData(data);
+      setMatchData(matchData);
       setShowModal(true);
       setCountdown(15);
+      navigate("/match-success");
     });
 
     return () => {
       socket.off("matchSuccess");
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (!showModal) return;
@@ -41,39 +42,42 @@ const MatchDecisionModal = () => {
   // 수락 버튼 클릭 시, POST 요청에 matchId 포함
   // 수락 버튼 클릭 핸들러 예시
   const handleAccept = async () => {
-    // safety check
-    if (!matchData || !matchData.matchId) {
-      console.error("matchData 또는 matchId가 없습니다.");
-      return;
-    }
-    console.log("handleAccept 호출, matchData.matchId:", matchData.matchId);
-    try {
-      const response = await axios.post(
-        "http://localhost:7777/api/matchmaking/respond",
-        {
-          matchId: matchData.matchId,
-          accepted: true,
-          account_ID: user.account_ID, // 실제 로그인 사용자명 반영
-        }
-      );
-      console.log("수락 응답:", response.data);
-      // 서버 응답 메시지를 확인해서 최종 확정 메시지일 때만 페이지 전환
-      if (response.data.message.includes("확정")) {
-        navigate("/match-success");
-      } else {
-        // 아직 상대방 응답을 기다리는 상태라면 모달을 유지하거나 대기 상태 메시지를 표시합니다.
-        console.log("상대방의 응답을 기다리는 중입니다.");
+  if (!matchData || !matchData.matchId) {
+    console.error("matchData 또는 matchId가 없습니다.");
+    return;
+  }
+  console.log("handleAccept 호출, matchData.matchId:", matchData.matchId);
+  try {
+    const response = await axios.post(
+      "http://localhost:7777/api/matchmaking/respond",
+      {
+        matchId: matchData.matchId,
+        accepted: true,
+        account_ID: user.account_ID,
       }
-    } catch (error) {
-      console.error(
-        "매치 수락 중 오류:",
-        error.response ? error.response.data : error.message
-      );
-    } finally {
+    );
+    console.log("수락 응답:", response.data);
+    if (response.data.message.includes("확정")) {
+      // 최종 확정 시 페이지 전환 후 모달 해제
       setShowModal(false);
       setMatchData(null);
+      navigate("/match-success");
+    } else {
+      console.log("상대방의 응답을 기다리는 중입니다.");
+      // 모달은 그대로 유지해서 사용자가 기다리는 상황을 계속 볼 수 있게 함.
+      // 필요하다면 기다리는 메시지를 업데이트할 수 있습니다.
     }
-  };
+  } catch (error) {
+    console.error(
+      "매치 수락 중 오류:",
+      error.response ? error.response.data : error.message
+    );
+    // 에러 발생 시 모달을 닫거나, 에러 상태를 보여주는 처리를 할 수 있습니다.
+    setShowModal(false);
+    setMatchData(null);
+  }
+};
+
 
   // 거절 버튼 클릭 핸들러 예시
   const handleDecline = async () => {

@@ -44,6 +44,12 @@ class MatchManager {
     return { finalized, successful, match };
   }
 
+  infoMatch(matchId) {
+    const match = this.matches[matchId];
+    const user1 = match.user1;
+    const user2 = match.user2;
+    return {user1, user2}
+  }
   // 해당 매치를 메모리에서 제거하는 메소드
   removeMatch(matchId) {
     delete this.matches[matchId];

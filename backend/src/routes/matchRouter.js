@@ -93,8 +93,6 @@ module.exports = (io) => {
         `SELECT uu_ID FROM members WHERE id = ?`,
         [userid]
       );
-      console.log(userid, username, userAccountId, targetRank, selectPosition);
-      console.log("DB queryResult =", queryResult);
       if (!queryResult || queryResult.length === 0) {
         return res
           .status(400)
@@ -107,7 +105,6 @@ module.exports = (io) => {
       if (!userInfo || userInfo.length === 0) {
         return res.status(400).json({ error: "유저 정보를 찾을 수 없습니다." });
       }
-      console.log("userInfo", userInfo[0].tier);
       const currentRank = `${userInfo[0].tier}`;
 
       // OPScore 계산: puuid 기반 최근 5경기 정보 조회
@@ -188,30 +185,38 @@ module.exports = (io) => {
         account_ID
       );
       if (responseResult.error) {
+        // 만약 에러 메시지가 "매치를 찾을 수 없습니다."라면,
+        // 이는 이미 최종 처리(매칭 확정)가 완료되었다고 간주하여 정상 응답을 반환
+        if (responseResult.error === "매치를 찾을 수 없습니다.") {
+          return res.status(200).json({
+            message: "매칭이 확정되었습니다.",
+            // 여기에 추가 정보가 있다면 포함할 수 있음. 예를 들면,
+            // matchId 또는 opponent 정보 (이미 Socket.IO로 전송되었으므로 생략 가능)
+          });
+        }
+        // 그 외의 경우 일반 오류로 처리
         return res.status(400).json({ error: responseResult.error });
       }
+      
       if (responseResult.finalized) {
         const match = responseResult.match;
         if (responseResult.successful) {
-          const opponent =
-            match.user1.data.account_ID === account_ID
-              ? match.user2.data
-              : match.user1.data;
+          const opponentObject = {
+            user1: match.user1.data,
+            user2: match.user2.data,
+          };
+            
 
           // Socket.IO 이벤트 발행: matchId와 상대 정보를 클라이언트에 전달
           io.emit("matchSuccess", {
             matchId: match.id,
-            opponent: {
-              user1: match.user1.data,
-              user2: match.user2.data,
-            },
+            opponent: opponentObject
           });
           // 매칭 성공 후 in-memory에서 해당 매치 정보를 제거
-          matchManager.removeMatch(matchId);
           return res.status(200).json({
             message: "매칭이 확정되었습니다.",
             matchId: match.id,
-            opponent,
+            opponent: opponentObject,
           });
         } else {
           matchManager.removeMatch(matchId);
@@ -265,6 +270,44 @@ module.exports = (io) => {
       });
     }
   });
+  router.get('/success', async (req, res) => {
+  try {
+    const { matchId, userId} = req.query;
+
+    if (!matchId) {
+      return res.status(404).json({ message: '매칭 정보 없음' });
+    }
+    const match = matchManager.infoMatch(matchId);
+    if (!match) {
+      return res.status(404).json({ message: '매칭 정보 없음' });
+    }
+    if (!userId) {
+      return res.status(404).json({ message: 'userId가 필요합니다' });
+    }
+    // (2) 상대방 정보 추출
+    const opponent =
+      match.user1.data.account_ID === userId
+        ? match.user2.data
+        : match.user1.data;
+
+    // 매치 생성 시각을 기준으로 매칭 시간(matchTime)을 계산(초 단위)
+    const matchTime = Math.floor((Date.now() - match.createdAt) / 1000);
+
+    res.json({
+      username: opponent.username,
+      targetRank: opponent.targetRank,
+      selectPosition: opponent.selectPosition,
+      OPScore: opponent.OPScore,
+    });
+    // 주의: 최종 조회 후 매치 객체를 제거하면 이후 조회가 안 됨
+    //matchManager.removeMatch(matchId);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: '서버 오류' });
+  }
+});
+
 
   return router;
 };
